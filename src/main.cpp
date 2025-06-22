@@ -34,13 +34,24 @@ struct Frame{double ts; std::vector<Detection> dets;};
 static std::vector<Frame> load_frames(const std::string& path)
 {
     std::ifstream in(path);
-    nlohmann::json j; in>>j;
+    nlohmann::ordered_json j; in>>j;
     std::vector<Frame> frames;
     for(auto& f:j){
         Frame fr; fr.ts = parse_iso(f.at("timestamp"));
-        for(auto& d:f.at("detections")){
-            fr.dets.push_back({d.at("x"),d.at("y"),d.at("w"),d.at("h")});
+        for (auto& d : f.at("detections")) {
+            double w = d.at("w");
+            double h = d.at("h");
+
+            if (w <= 0.0 || h <= 0.0) {
+                std::ostringstream msg;
+                msg << "Invalid detection at " << f.at("timestamp")
+                    << " with w=" << w << ", h=" << h;
+                throw std::runtime_error(msg.str());
+            }
+
+            fr.dets.push_back({d.at("x"), d.at("y"), w, h});
         }
+
         frames.push_back(std::move(fr));
     }
     return frames;
@@ -49,9 +60,9 @@ static std::vector<Frame> load_frames(const std::string& path)
 static void save_tracks(const std::string& path,
                         const std::vector<std::pair<double,std::vector<Track>>>& dump)
 {
-    nlohmann::json j=nlohmann::json::array();
+    nlohmann::ordered_json j=nlohmann::json::array();
     for(auto& [ts,trks]:dump){
-        nlohmann::json o; o["timestamp"]=format_iso(ts);
+        nlohmann::ordered_json o; o["timestamp"]=format_iso(ts);
         for(auto& t:trks){
             o["tracks"].push_back({{"id",t.id},
                                    {"x",t.rect.at<double>(0)},

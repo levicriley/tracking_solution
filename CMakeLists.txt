@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(OpenCV REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
-find_package(CLI11 2.3.2 REQUIRED)
+find_package(CLI11 2.1.2 REQUIRED)
 
 add_executable(tracking-solution
     src/main.cpp

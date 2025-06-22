@@ -1,4 +1,6 @@
 build/*
 visualizations/*
 tests/old/*
+*.png
+
 

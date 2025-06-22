@@ -54,8 +54,7 @@ def parse_args():
 
 def draw_frame(objs, img_w, img_h, font_scale):
     """
-    Paint each bbox, and if the dict contains 'id' print it centred
-    inside the rectangle.
+    Paint each bbox, and if the dict contains 'id', print it in the top-left above the box.
     """
     img = np.full((img_h, img_w, 3), 30, dtype=np.uint8)
 
@@ -71,14 +70,16 @@ def draw_frame(objs, img_w, img_h, font_scale):
             text = str(obj["id"])
             (tw, th), _ = cv2.getTextSize(
                 text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
-            text_x = x + max(2, (w - tw) // 2)
-            text_y = y + max(th + 2, (h + th) // 2)
+            text_x = x + 2
+            text_y = max(y - 4, th + 2)  # prevent going above image top
             cv2.putText(
                 img, text, (text_x, text_y),
                 cv2.FONT_HERSHEY_SIMPLEX, font_scale,
                 (0, 255, 255), 1, cv2.LINE_AA)
 
     return img
+
+
 
 
 # ---------------------------------------------------------------------------
