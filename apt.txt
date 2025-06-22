@@ -1,0 +1,4 @@
+# apt.txt
+libopencv-dev
+libeigen3-dev
+nlohmann-json3-dev

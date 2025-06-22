@@ -1,0 +1,4 @@
+# python.txt
+numpy>=1.25
+opencv-python
+
