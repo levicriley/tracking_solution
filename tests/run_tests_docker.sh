@@ -62,12 +62,7 @@ cfg() {
 python3 tests/generate_input.py
 
 ########################################################################
-# 2) Build the Docker image (packages auto-pulled via apt.txt / python.txt)
-########################################################################
-docker build -t tracking-solution-test .
-
-########################################################################
-# 3) Extract tracker CLI defaults from [tracker] section
+# 2) Extract tracker CLI defaults from [tracker] section
 ########################################################################
 IN=$(cfg tracker input)
 OUT=$(cfg tracker output)
@@ -77,19 +72,18 @@ MAX_AGE=$(cfg tracker max-age)
 ALPHA=$(cfg tracker alpha)
 
 ########################################################################
-# 4) Run tracker in the container (bind-mount repo root as /data)
+# 3) Run tracker in the container (bind-mount repo root as /data)
 ########################################################################
-docker run --rm \
-  -v "$(pwd)":/data \
-  tracking-solution-test \
-    --input   /data/"$IN" \
-    --output  /data/"$OUT" \
-    --vis-dir /data/"$VIS" \
-    --max-dist "$MAX_DIST" \
-    --max-age  "$MAX_AGE" \
-    --alpha    "$ALPHA"
+tracking-solution \
+  --input   "$IN" \
+  --output  "$OUT" \
+  --vis-dir "$VIS" \
+  --max-dist "$MAX_DIST" \
+  --max-age  "$MAX_AGE" \
+  --alpha    "$ALPHA"
+
 
 ########################################################################
-# 5) Verify results
+# 4) Verify results
 ########################################################################
 python3 tests/compare_tracks.py tests/expected.json "$OUT"

@@ -30,7 +30,11 @@ RUN cmake -S . -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local && \
     cmake --build build -j && \
     cmake --install build
 
-# ---------- 5. Default entrypoint -----------------------------------------
+# ---------- 5. copy defaults.ini -----------------------------------------
+COPY defaults.ini /app/defaults.ini
+
+
+# ---------- 6. Default entrypoint -----------------------------------------
 # Expect same CLI you specified earlier
 ENTRYPOINT ["tracking-solution"]
 CMD ["--help"]
