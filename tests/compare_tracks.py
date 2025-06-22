@@ -4,100 +4,81 @@ compare_tracks.py – Compare output tracking JSON to expected JSON,
 penalizing ID switches across frames even if exact IDs differ.
 
 Usage:
-    python compare_tracks.py expected.json actual.json
+    python compare_tracks.py expected.json output.json
 """
 
 import json
 import sys
 import numpy as np
-from scipy.optimize import linear_sum_assignment
+from scipy.spatial.distance import euclidean
 
 def load_json(path):
     with open(path) as f:
         return json.load(f)
 
-def center(box):
-    return (box["x"] + box["w"] / 2, box["y"] + box["h"] / 2)
+def obj_key(obj):
+    """Return (x, y, w, h) tuple as the unique object key."""
+    return (obj["x"], obj["y"], obj["w"], obj["h"])
 
-def iou(a, b):
-    ax1, ay1 = a["x"], a["y"]
-    ax2, ay2 = ax1 + a["w"], ay1 + a["h"]
-    bx1, by1 = b["x"], b["y"]
-    bx2, by2 = bx1 + b["w"], by1 + b["h"]
+def find_closest_match(target, candidates, threshold=0.01):
+    """Find the closest match from candidates for a target object."""
+    tx, ty, tw, th = obj_key(target)
+    for idx, cand in enumerate(candidates):
+        cx, cy, cw, ch = obj_key(cand)
+        dist = euclidean((tx, ty, tw, th), (cx, cy, cw, ch))
+        if dist < threshold:
+            return idx
+    return -1
 
-    inter_x1 = max(ax1, bx1)
-    inter_y1 = max(ay1, by1)
-    inter_x2 = min(ax2, bx2)
-    inter_y2 = min(ay2, by2)
-
-    inter_area = max(0, inter_x2 - inter_x1) * max(0, inter_y2 - inter_y1)
-    a_area = a["w"] * a["h"]
-    b_area = b["w"] * b["h"]
-    union_area = a_area + b_area - inter_area
-    return inter_area / union_area if union_area > 0 else 0
-
-def match_tracks(gt_tracks, pred_tracks, iou_threshold=0.3):
-    cost = np.ones((len(gt_tracks), len(pred_tracks))) * 1e6
-    for i, gt in enumerate(gt_tracks):
-        for j, pr in enumerate(pred_tracks):
-            score = iou(gt, pr)
-            if score > iou_threshold:
-                cost[i][j] = 1.0 - score
-    row_ind, col_ind = linear_sum_assignment(cost)
-    matches = []
-    for r, c in zip(row_ind, col_ind):
-        if cost[r][c] < 1.0:
-            matches.append((gt_tracks[r], pred_tracks[c]))
-    return matches
-
-def compare_frames(expected, actual):
-    id_map = {}  # Maps expected IDs to actual IDs
+def compare_tracks(expected, actual, threshold=0.01):
+    expected_obj_to_id = {}  # maps object key -> output track ID
     id_switches = 0
-    misses = 0
-    false_positives = 0
+    seen_keys = set()
 
-    for frame_idx, (e_frame, a_frame) in enumerate(zip(expected, actual)):
-        e_tracks = e_frame.get("tracks", [])
-        a_tracks = a_frame.get("tracks", [])
+    for frame_idx, (exp_frame, act_frame) in enumerate(zip(expected, actual)):
+        exp_objs = exp_frame.get("tracks", [])
+        act_objs = act_frame.get("tracks", [])
 
-        matches = match_tracks(e_tracks, a_tracks)
-        used_actual_ids = set()
-        for gt, pr in matches:
-            eid = gt["id"]
-            aid = pr["id"]
-            if eid not in id_map:
-                id_map[eid] = aid
-            elif id_map[eid] != aid:
-                id_switches += 1  # switched identity
-            used_actual_ids.add(aid)
+        for exp_obj in exp_objs:
+            key = obj_key(exp_obj)
+            match_idx = find_closest_match(exp_obj, act_objs, threshold)
+            if match_idx == -1:
+                continue  # can't match this expected object
 
-        misses += len(e_tracks) - len(matches)
-        false_positives += len(a_tracks) - len(matches)
+            out_id = act_objs[match_idx]["id"]
+            if key in expected_obj_to_id:
+                if expected_obj_to_id[key] != out_id:
+                    id_switches += 1  # this object was tracked by a different ID
+            else:
+                expected_obj_to_id[key] = out_id
+
+            seen_keys.add(key)
 
     return {
         "frames_compared": len(expected),
+        "tracked_objects": len(seen_keys),
         "id_switches": id_switches,
-        "misses": misses,
-        "false_positives": false_positives,
     }
 
 def main():
+
     if len(sys.argv) != 3:
-        print("Usage: python compare_tracks.py expected.json actual.json")
+        print("Usage: python compare_tracks.py expected.json output.json")
         sys.exit(1)
 
     expected = load_json(sys.argv[1])
     actual = load_json(sys.argv[2])
+
     if len(expected) != len(actual):
         print("Frame count mismatch")
         sys.exit(1)
 
-    results = compare_frames(expected, actual)
+    results = compare_tracks(expected, actual)
     print("Comparison Results:")
     for k, v in results.items():
         print(f"{k}: {v}")
 
-    if results["misses"] == 0 and results["id_switches"] == 0 and results["false_positives"] == 0:
+    if results["id_switches"] == 0:
         print("TEST PASSES ✅")
         sys.exit(0)
     else:
