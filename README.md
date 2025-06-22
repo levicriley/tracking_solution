@@ -16,5 +16,5 @@ docker run --rm -v $(pwd):/data tracking-solution \
 
 ## Run bundled tests
 ```bash
-tests/run_tests.sh
+run_test.sh
 ```
